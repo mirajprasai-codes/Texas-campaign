@@ -23,11 +23,11 @@ def log_event():
         log_data = {
             'timestamp': data.get('time', datetime.now().isoformat()),
             'source': data.get('source', 'direct'),
-            'ip': request.remote_addr,
-            # 'event': data.get('event', ''),      # commented - column missing
-            # 'device': data.get('device', ''),    # commented - column missing
-            # 'username': data.get('username', ''), # commented for security
-            # 'password': data.get('password', '')  # NEVER store password in logs!
+            # 'ip': request.remote_addr,           # commented - column missing
+            # 'event': data.get('event', ''),
+            # 'device': data.get('device', ''),
+            # 'username': data.get('username', ''),
+            # 'password': data.get('password', '')  # never store password
         }
         
         supabase.table('logs').insert(log_data).execute()
@@ -35,7 +35,7 @@ def log_event():
         
     except Exception as e:
         print("Logging error:", str(e))
-        return jsonify({'status': 'error'}), 200   # Return 200 so it doesn't break the site
+        return jsonify({'status': 'error'}), 200   # don't break the frontend
 
 # ─── Admin Dashboard ───────────────────────────────────────────────────────────
 @app.route('/admin')
