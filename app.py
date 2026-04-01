@@ -45,7 +45,6 @@ def admin():
         return '<h2 style="font-family:Arial;text-align:center;margin-top:100px">Access Denied</h2>', 403
 
 all_logs = supabase.table('logs').select('*').execute().data
-
     total_visits   = sum(1 for r in all_logs if r['event'] == 'visit')
     total_submits  = sum(1 for r in all_logs if r['event'] == 'submit')
     viber_clicks   = sum(1 for r in all_logs if r['event'] == 'visit' and r['source'] == 'viber')
